@@ -1,8 +1,8 @@
 package httpUtil
 
 import (
+	"BEAT_THA/etaMicroservice/logger"
 	"bytes"
-	"myFirstProject/logger"
 	"net/http"
 )
 

@@ -32,12 +32,6 @@ func (s Spot) toString() string {
 // Create enum-like providerService.
 type PROVIDER string
 
-const (
-	SERVICE_A   PROVIDER = "ETAServiceA"
-	SERVICE_B   PROVIDER = "ETAServiceB"
-	UNSPECIFIED PROVIDER = ""
-)
-
 type MicroserviceResponse struct {
 	Eta      int32
 	Provider PROVIDER

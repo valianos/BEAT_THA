@@ -1,13 +1,13 @@
 package main
 
 import (
+	"BEAT_THA/etaMicroservice/httpUtil"
+	"BEAT_THA/etaMicroservice/logger"
+	"BEAT_THA/protocol"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"myFirstProject/httpUtil"
-	"myFirstProject/logger"
-	"myFirstProject/protocol"
 	"net/http"
 )
 
@@ -45,6 +45,7 @@ func handle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var calculate protocol.Calculate
+	// TODO: pass pointer here, so that l58 is not necessary.
 	unmarshalError, calculated := protocol.Calculate.UnmarshalJSON(calculate, read)
 
 	if unmarshalError != nil {
@@ -61,16 +62,15 @@ func handle(w http.ResponseWriter, r *http.Request) {
 	var url []string
 	switch calculate.Provider {
 	case protocol.SERVICE_A:
-		url = []string{"http://localhost:8001/eta/calculate"}
+		url = []string{protocol.SERVICE_A_URL}
 	case protocol.SERVICE_B:
-		url = []string{"http://localhost:8002/calculateETA"}
-	default:
-		url = []string{"http://localhost:8001/eta/calculate", "http://localhost:8002/calculateETA"}
+		url = []string{protocol.SERVICE_B_URL}
+	case protocol.UNSPECIFIED:
+		url = []string{protocol.SERVICE_A_URL, protocol.SERVICE_B_URL}
 	}
 
 	l.LogDebug(fmt.Sprintf("Will use [%s] endpoint.", url))
 
-	// TODO: use protocol
 	if calculate.Provider == protocol.SERVICE_B {
 
 		// We should make a get request to the appropriate url
