@@ -7,91 +7,9 @@ import (
 	"io/ioutil"
 	"myFirstProject/httpUtil"
 	"myFirstProject/logger"
+	"myFirstProject/protocol"
 	"net/http"
 )
-
-// TODO: protocol module maybe
-
-// ========== Inner protocol
-type Calculate struct {
-	Origin      spot
-	Destination spot
-	Provider    PROVIDER
-}
-
-func (calculate Calculate) toString() string {
-
-	return fmt.Sprintf("Origin: %s\nDestination: %s\nProviderService: %s",
-		calculate.Origin.toString(), calculate.Destination.toString(), calculate.Provider)
-
-}
-
-type spot struct {
-	Lat float32
-	Lng float32
-}
-
-func (s spot) toString() string {
-	return fmt.Sprintf("lat: %f \t lng: %f", s.Lat, s.Lng)
-}
-
-// Create enum-like providerService.
-type PROVIDER string
-
-const (
-	SERVICE_A   PROVIDER = "ETAServiceA"
-	SERVICE_B   PROVIDER = "ETAServiceB"
-	UNSPECIFIED PROVIDER = ""
-)
-
-type microserviceResponse struct {
-	Eta      int32
-	Provider PROVIDER
-}
-
-// ======= Outer microservices protocol
-
-type externalMicroserviceResponse interface {
-	eta() int32
-}
-
-type serviceBResponse struct {
-	From     string
-	To       string
-	Distance int32
-	Duration int32
-}
-
-func (s serviceBResponse) toString() string {
-	return fmt.Sprintf("From: %s \tTo: %s\tDistance: %d\tDuration: %d",
-		s.From, s.To, s.Distance, s.Duration)
-}
-
-func (s serviceBResponse) eta() int32 { return s.Duration }
-
-type serviceARequest struct {
-	Origin      spot
-	Destination spot
-}
-
-func (s serviceARequest) toString() string {
-	return fmt.Sprintf("Origin: %s \tDestination: %s",
-		s.Origin.toString(), s.Destination.toString())
-}
-
-type serviceAResponse struct {
-	Origin      spot
-	Destination spot
-	Distance    int32
-	Duration    int32
-}
-
-func (s serviceAResponse) toString() string {
-	return fmt.Sprintf("From: %s \tTo: %s\tDistance: %d\tDuration: %d",
-		s.Origin.toString(), s.Origin.toString(), s.Distance, s.Duration)
-}
-
-func (s serviceAResponse) eta() int32 { return s.Duration }
 
 var l = new(logger.Logger)
 
@@ -126,8 +44,8 @@ func handle(w http.ResponseWriter, r *http.Request) {
 
 	}
 
-	var calculate Calculate
-	unmarshalError, calculated := Calculate.UnmarshalJSON(calculate, read)
+	var calculate protocol.Calculate
+	unmarshalError, calculated := protocol.Calculate.UnmarshalJSON(calculate, read)
 
 	if unmarshalError != nil {
 
@@ -138,13 +56,13 @@ func handle(w http.ResponseWriter, r *http.Request) {
 
 	calculate = *calculated
 
-	l.LogInfo("Received a valid calculated object:\n" + calculate.toString())
+	l.LogInfo("Received a valid calculated object:\n" + calculate.ToString())
 
 	var url []string
 	switch calculate.Provider {
-	case SERVICE_A:
+	case protocol.SERVICE_A:
 		url = []string{"http://localhost:8001/eta/calculate"}
-	case SERVICE_B:
+	case protocol.SERVICE_B:
 		url = []string{"http://localhost:8002/calculateETA"}
 	default:
 		url = []string{"http://localhost:8001/eta/calculate", "http://localhost:8002/calculateETA"}
@@ -153,7 +71,7 @@ func handle(w http.ResponseWriter, r *http.Request) {
 	l.LogDebug(fmt.Sprintf("Will use [%s] endpoint.", url))
 
 	// TODO: use protocol
-	if calculate.Provider == SERVICE_B {
+	if calculate.Provider == protocol.SERVICE_B {
 
 		// We should make a get request to the appropriate url
 		api := fmt.Sprintf("%s?from=%f|%f&to=%f|%f",
@@ -179,8 +97,8 @@ func handle(w http.ResponseWriter, r *http.Request) {
 
 		}
 
-		var BResponse serviceBResponse
-		unmarshalError, resp := serviceBResponse.UnmarshalJSON(BResponse, read)
+		var BResponse protocol.ServiceBResponse
+		unmarshalError, resp := protocol.ServiceBResponse.UnmarshalJSON(BResponse, read)
 
 		if unmarshalError != nil {
 
@@ -190,10 +108,10 @@ func handle(w http.ResponseWriter, r *http.Request) {
 		}
 
 		BResponse = *resp
-		l.LogInfo("Received a valid service B response:\n" + BResponse.toString())
+		l.LogInfo("Received a valid service B response:\n" + BResponse.ToString())
 
 		// Time to respond.
-		result := microserviceResponse{
+		result := protocol.MicroserviceResponse{
 			Eta:      BResponse.Duration,
 			Provider: calculate.Provider,
 		}
@@ -208,12 +126,12 @@ func handle(w http.ResponseWriter, r *http.Request) {
 
 		w.Write(marshal)
 
-	} else if calculate.Provider == SERVICE_A {
+	} else if calculate.Provider == protocol.SERVICE_A {
 
 		api := url[0]
-		request := serviceARequest{
-			Origin:      spot{calculate.Origin.Lat, calculate.Origin.Lng},
-			Destination: spot{calculate.Destination.Lat, calculate.Destination.Lng},
+		request := protocol.ServiceARequest{
+			Origin:      protocol.Spot{Lat: calculate.Origin.Lat, Lng: calculate.Origin.Lng},
+			Destination: protocol.Spot{Lat: calculate.Destination.Lat, Lng: calculate.Destination.Lng},
 		}
 
 		marshal, marshalError := json.Marshal(request)
@@ -241,8 +159,8 @@ func handle(w http.ResponseWriter, r *http.Request) {
 
 		}
 
-		var AResponse serviceAResponse
-		unmarshalError, resp := serviceAResponse.UnmarshalJSON(AResponse, read)
+		var AResponse protocol.ServiceAResponse
+		unmarshalError, resp := protocol.ServiceAResponse.UnmarshalJSON(AResponse, read)
 		if unmarshalError != nil {
 
 			logErrorAndRespond(w, unmarshalError)
@@ -250,10 +168,10 @@ func handle(w http.ResponseWriter, r *http.Request) {
 
 		}
 		AResponse = *resp
-		l.LogInfo("Received a valid service A response:\n" + AResponse.toString())
+		l.LogInfo("Received a valid service A response:\n" + AResponse.ToString())
 
 		// Time to respond.
-		result := microserviceResponse{
+		result := protocol.MicroserviceResponse{
 			Eta:      AResponse.Duration,
 			Provider: calculate.Provider,
 		}
@@ -277,69 +195,6 @@ func logErrorAndRespond(w http.ResponseWriter, getErr error) {
 
 	l.LogError(getErr)
 	w.WriteHeader(500)
-
-}
-
-func (calculate Calculate) UnmarshalJSON(b []byte) (error, *Calculate) {
-
-	// Define a secondary type to avoid ending up with a recursive call to json.Unmarshal
-	type calc Calculate
-	var c calc = (calc)(calculate)
-
-	err := json.Unmarshal(b, &c)
-
-	if err != nil {
-		panic(err)
-	}
-
-	if err := c.Provider.IsValid(); err != nil {
-		return err, nil
-	}
-
-	return nil, (*Calculate)(&c)
-
-}
-
-func (s serviceBResponse) UnmarshalJSON(b []byte) (error, *serviceBResponse) {
-
-	// Define a secondary type to avoid ending up with a recursive call to json.Unmarshal
-	type resp serviceBResponse
-	var r resp = (resp)(s)
-
-	err := json.Unmarshal(b, &r)
-
-	if err != nil {
-		panic(err)
-	}
-
-	return nil, (*serviceBResponse)(&r)
-
-}
-
-func (s serviceAResponse) UnmarshalJSON(b []byte) (error, *serviceAResponse) {
-
-	// Define a secondary type to avoid ending up with a recursive call to json.Unmarshal
-	type resp serviceAResponse
-	var r resp = (resp)(s)
-
-	err := json.Unmarshal(b, &r)
-
-	if err != nil {
-		panic(err)
-	}
-
-	return nil, (*serviceAResponse)(&r)
-
-}
-
-func (provider PROVIDER) IsValid() error {
-
-	switch provider {
-	case SERVICE_A, SERVICE_B, UNSPECIFIED:
-		return nil
-	}
-
-	return errors.New(fmt.Sprintf("invalid provider service type: %s.", provider))
 
 }
 
