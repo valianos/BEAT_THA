@@ -69,6 +69,30 @@ func (s serviceBResponse) toString() string {
 
 func (s serviceBResponse) eta() int32 { return s.Duration }
 
+type serviceARequest struct {
+	Origin      spot
+	Destination spot
+}
+
+func (s serviceARequest) toString() string {
+	return fmt.Sprintf("Origin: %s \tDestination: %s",
+		s.Origin.toString(), s.Destination.toString())
+}
+
+type serviceAResponse struct {
+	Origin      spot
+	Destination spot
+	Distance    int32
+	Duration    int32
+}
+
+func (s serviceAResponse) toString() string {
+	return fmt.Sprintf("From: %s \tTo: %s\tDistance: %d\tDuration: %d",
+		s.Origin.toString(), s.Origin.toString(), s.Distance, s.Duration)
+}
+
+func (s serviceAResponse) eta() int32 { return s.Duration }
+
 var l = new(logger.Logger)
 
 func main() {
@@ -166,7 +190,7 @@ func handle(w http.ResponseWriter, r *http.Request) {
 		}
 
 		BResponse = *resp
-		l.LogInfo("Received a valid service B response:\n" + resp.toString())
+		l.LogInfo("Received a valid service B response:\n" + BResponse.toString())
 
 		// Time to respond.
 		result := microserviceResponse{
@@ -175,6 +199,66 @@ func handle(w http.ResponseWriter, r *http.Request) {
 		}
 
 		marshal, marshalError := json.Marshal(result)
+		if marshalError != nil {
+
+			logErrorAndRespond(w, marshalError)
+			return
+
+		}
+
+		w.Write(marshal)
+
+	} else if calculate.Provider == SERVICE_A {
+
+		api := url[0]
+		request := serviceARequest{
+			Origin:      spot{calculate.Origin.Lat, calculate.Origin.Lng},
+			Destination: spot{calculate.Destination.Lat, calculate.Destination.Lng},
+		}
+
+		marshal, marshalError := json.Marshal(request)
+		if marshalError != nil {
+
+			logErrorAndRespond(w, marshalError)
+			return
+
+		}
+
+		response, postError := httpUtil.Post(api, marshal)
+		if postError != nil {
+
+			logErrorAndRespond(w, postError)
+			return
+
+		}
+
+		read, readError := ioutil.ReadAll(response.Body)
+
+		if readError != nil {
+
+			logErrorAndRespond(w, readError)
+			return
+
+		}
+
+		var AResponse serviceAResponse
+		unmarshalError, resp := serviceAResponse.UnmarshalJSON(AResponse, read)
+		if unmarshalError != nil {
+
+			logErrorAndRespond(w, unmarshalError)
+			return
+
+		}
+		AResponse = *resp
+		l.LogInfo("Received a valid service A response:\n" + AResponse.toString())
+
+		// Time to respond.
+		result := microserviceResponse{
+			Eta:      AResponse.Duration,
+			Provider: calculate.Provider,
+		}
+
+		marshal, marshalError = json.Marshal(result)
 		if marshalError != nil {
 
 			logErrorAndRespond(w, marshalError)
@@ -229,6 +313,22 @@ func (s serviceBResponse) UnmarshalJSON(b []byte) (error, *serviceBResponse) {
 	}
 
 	return nil, (*serviceBResponse)(&r)
+
+}
+
+func (s serviceAResponse) UnmarshalJSON(b []byte) (error, *serviceAResponse) {
+
+	// Define a secondary type to avoid ending up with a recursive call to json.Unmarshal
+	type resp serviceAResponse
+	var r resp = (resp)(s)
+
+	err := json.Unmarshal(b, &r)
+
+	if err != nil {
+		panic(err)
+	}
+
+	return nil, (*serviceAResponse)(&r)
 
 }
 
