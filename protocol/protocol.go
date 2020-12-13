@@ -8,9 +8,23 @@ import (
 
 // ========== Inner protocol
 type Calculate struct {
-	Origin      Spot
-	Destination Spot
-	Provider    PROVIDER
+	Origin      Spot     `json:"origin"`
+	Destination Spot     `json:"destination"`
+	Provider    PROVIDER `json:"provider"`
+}
+
+func (calculate Calculate) Validate() error {
+
+	if calculate.Destination.Lng == 0 || calculate.Destination.Lat == 0 ||
+		calculate.Origin.Lng == 0 || calculate.Origin.Lat == 0 ||
+		calculate.Provider.IsValid() != nil {
+
+		return errors.New("invalid entity")
+
+	}
+
+	return nil
+
 }
 
 func (calculate Calculate) ToString() string {
@@ -122,7 +136,7 @@ func (s ServiceBResponse) UnmarshalJSON(b []byte) (error, *ServiceBResponse) {
 	err := json.Unmarshal(b, &r)
 
 	if err != nil {
-		panic(err)
+		panic(err) // FIXME
 	}
 
 	return nil, (*ServiceBResponse)(&r)

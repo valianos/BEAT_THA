@@ -61,11 +61,17 @@ func handle(w http.ResponseWriter, r *http.Request) {
 
 	if result.Err != nil {
 
-		logErrorAndRespond(w, result.Err, http.StatusInternalServerError)
+		logErrorAndRespond(w, result.Err, http.StatusBadRequest)
 		return
 
 	}
 
+	if err := calculate.Validate(); err != nil {
+
+		logErrorAndRespond(w, err, http.StatusBadRequest)
+		return
+
+	}
 	l.LogInfo("Received a valid calculated object:\n" + calculate.ToString())
 
 	// We have received the command. Now it is time to use the
