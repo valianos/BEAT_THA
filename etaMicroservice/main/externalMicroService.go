@@ -18,16 +18,17 @@ type ExtEtaMicroService interface {
 }
 
 // Factory method for creating the two available external microservices.
-func Factory(calculate protocol.Calculate) ExtEtaMicroService {
+func Factory(calculate protocol.Calculate) []ExtEtaMicroService {
 
 	switch calculate.Provider {
 
 	case protocol.SERVICE_A:
 
-		return ExtEtaMicroserviceA{
-			serviceUrl:    protocol.SERVICE_A_URL,
-			serviceMethod: protocol.POST,
-		}
+		return []ExtEtaMicroService{
+			ExtEtaMicroserviceA{
+				serviceUrl:    protocol.SERVICE_A_URL,
+				serviceMethod: protocol.POST,
+			}}
 
 	case protocol.SERVICE_B:
 
@@ -35,11 +36,26 @@ func Factory(calculate protocol.Calculate) ExtEtaMicroService {
 			protocol.SERVICE_B_URL,
 			calculate.Origin.Lat, calculate.Origin.Lng,
 			calculate.Destination.Lat, calculate.Destination.Lng)
-		return ExtEtaMicroserviceB{
-			serviceUrl:    url,
-			serviceMethod: protocol.GET,
-		}
+		return []ExtEtaMicroService{
+			ExtEtaMicroserviceB{
+				serviceUrl:    url,
+				serviceMethod: protocol.GET,
+			}}
 
+	case protocol.UNSPECIFIED:
+		url := fmt.Sprintf("%s?from=%f|%f&to=%f|%f",
+			protocol.SERVICE_B_URL,
+			calculate.Origin.Lat, calculate.Origin.Lng,
+			calculate.Destination.Lat, calculate.Destination.Lng)
+		return []ExtEtaMicroService{
+			ExtEtaMicroserviceA{
+				serviceUrl:    protocol.SERVICE_A_URL,
+				serviceMethod: protocol.POST,
+			},
+			ExtEtaMicroserviceB{
+				serviceUrl:    url,
+				serviceMethod: protocol.GET,
+			}}
 	default:
 		return nil
 

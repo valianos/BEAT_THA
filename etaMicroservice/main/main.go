@@ -79,30 +79,34 @@ func handle(w http.ResponseWriter, r *http.Request) {
 
 	}
 
-	l.LogDebug(fmt.Sprintf("Will use [%s] endpoint.", service.ToString()))
-
-	extResponse := <-Call(service, calculate)
-	if extResponse.err != nil {
-
-		logErrorAndRespond(w, extResponse.err, protocol.SERVER_ERROR)
-		return
-
-	}
-
 	output := make(chan []byte)
-	go func() {
+	for _, serv := range service {
 
-		marshal, marshalError := json.Marshal(extResponse.resp)
-		if marshalError != nil {
+		l.LogDebug(fmt.Sprintf("Will use [%s] endpoint.", serv.ToString()))
 
-			logErrorAndRespond(w, marshalError, protocol.SERVER_ERROR)
+		extResponse := <-Call(serv, calculate)
+		if extResponse.err != nil {
+
+			logErrorAndRespond(w, extResponse.err, protocol.SERVER_ERROR)
 			return
 
 		}
 
-		output <- marshal
+		go func() {
 
-	}()
+			marshal, marshalError := json.Marshal(extResponse.resp)
+			if marshalError != nil {
+
+				logErrorAndRespond(w, marshalError, protocol.SERVER_ERROR)
+				return
+
+			}
+
+			output <- marshal
+
+		}()
+
+	}
 
 	w.Write(<-output)
 
