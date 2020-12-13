@@ -1,7 +1,6 @@
 package main
 
 import (
-	"BEAT_THA/etaMicroservice/httpUtil"
 	"BEAT_THA/etaMicroservice/logger"
 	"BEAT_THA/protocol"
 	"encoding/json"
@@ -26,7 +25,7 @@ func handle(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 
 		err := errors.New(fmt.Sprintf("invalid request method [%s]", r.Method))
-		logErrorAndRespond(w, err)
+		logErrorAndRespond(w, err, protocol.METHOD_NOT_ALLOWED)
 		return
 
 	}
@@ -39,7 +38,7 @@ func handle(w http.ResponseWriter, r *http.Request) {
 
 	if readError != nil {
 
-		logErrorAndRespond(w, readError)
+		logErrorAndRespond(w, readError, protocol.BAD_REQUEST)
 		return
 
 	}
@@ -50,7 +49,7 @@ func handle(w http.ResponseWriter, r *http.Request) {
 
 	if unmarshalError != nil {
 
-		logErrorAndRespond(w, unmarshalError)
+		logErrorAndRespond(w, unmarshalError, protocol.BAD_REQUEST)
 		return
 
 	}
@@ -59,142 +58,43 @@ func handle(w http.ResponseWriter, r *http.Request) {
 
 	l.LogInfo("Received a valid calculated object:\n" + calculate.ToString())
 
-	var url []string
-	switch calculate.Provider {
-	case protocol.SERVICE_A:
-		url = []string{protocol.SERVICE_A_URL}
-	case protocol.SERVICE_B:
-		url = []string{protocol.SERVICE_B_URL}
-	case protocol.UNSPECIFIED:
-		url = []string{protocol.SERVICE_A_URL, protocol.SERVICE_B_URL}
+	// We have received the command. Now it is time to use the
+	// external microservices.
+	service := Factory(calculate)
+	if service == nil {
+
+		err := fmt.Sprintf("Unexpected service [%s]", calculate.Provider)
+		logErrorAndRespond(w, errors.New(err), protocol.SERVER_ERROR)
+		return
+
 	}
 
-	l.LogDebug(fmt.Sprintf("Will use [%s] endpoint.", url))
+	l.LogDebug(fmt.Sprintf("Will use [%s] endpoint.", service.ToString()))
 
-	if calculate.Provider == protocol.SERVICE_B {
+	extError, response := Call(service, calculate)
+	if extError != nil {
 
-		// We should make a get request to the appropriate url
-		api := fmt.Sprintf("%s?from=%f|%f&to=%f|%f",
-			url[0],
-			calculate.Origin.Lat, calculate.Origin.Lng,
-			calculate.Destination.Lat, calculate.Destination.Lng)
+		logErrorAndRespond(w, extError, protocol.SERVER_ERROR)
+		return
 
-		response, getErr := httpUtil.Get(api) // TODO:consider buffers ,this could ease which response comes first
-
-		if getErr != nil {
-
-			logErrorAndRespond(w, getErr)
-			return
-
-		}
-
-		read, readError := ioutil.ReadAll(response.Body)
-
-		if readError != nil {
-
-			logErrorAndRespond(w, readError)
-			return
-
-		}
-
-		var BResponse protocol.ServiceBResponse
-		unmarshalError, resp := protocol.ServiceBResponse.UnmarshalJSON(BResponse, read)
-
-		if unmarshalError != nil {
-
-			logErrorAndRespond(w, unmarshalError)
-			return
-
-		}
-
-		BResponse = *resp
-		l.LogInfo("Received a valid service B response:\n" + BResponse.ToString())
-
-		// Time to respond.
-		result := protocol.MicroserviceResponse{
-			Eta:      BResponse.Duration,
-			Provider: calculate.Provider,
-		}
-
-		marshal, marshalError := json.Marshal(result)
-		if marshalError != nil {
-
-			logErrorAndRespond(w, marshalError)
-			return
-
-		}
-
-		w.Write(marshal)
-
-	} else if calculate.Provider == protocol.SERVICE_A {
-
-		api := url[0]
-		request := protocol.ServiceARequest{
-			Origin:      protocol.Spot{Lat: calculate.Origin.Lat, Lng: calculate.Origin.Lng},
-			Destination: protocol.Spot{Lat: calculate.Destination.Lat, Lng: calculate.Destination.Lng},
-		}
-
-		marshal, marshalError := json.Marshal(request)
-		if marshalError != nil {
-
-			logErrorAndRespond(w, marshalError)
-			return
-
-		}
-
-		response, postError := httpUtil.Post(api, marshal)
-		if postError != nil {
-
-			logErrorAndRespond(w, postError)
-			return
-
-		}
-
-		read, readError := ioutil.ReadAll(response.Body)
-
-		if readError != nil {
-
-			logErrorAndRespond(w, readError)
-			return
-
-		}
-
-		var AResponse protocol.ServiceAResponse
-		unmarshalError, resp := protocol.ServiceAResponse.UnmarshalJSON(AResponse, read)
-		if unmarshalError != nil {
-
-			logErrorAndRespond(w, unmarshalError)
-			return
-
-		}
-		AResponse = *resp
-		l.LogInfo("Received a valid service A response:\n" + AResponse.ToString())
-
-		// Time to respond.
-		result := protocol.MicroserviceResponse{
-			Eta:      AResponse.Duration,
-			Provider: calculate.Provider,
-		}
-
-		marshal, marshalError = json.Marshal(result)
-		if marshalError != nil {
-
-			logErrorAndRespond(w, marshalError)
-			return
-
-		}
-
-		w.Write(marshal)
-
-	} else {
-		w.Write([]byte("world"))
 	}
+
+	marshal, marshalError := json.Marshal(response)
+	if marshalError != nil {
+
+		logErrorAndRespond(w, marshalError, protocol.SERVER_ERROR)
+		return
+
+	}
+
+	w.Write(marshal)
+
 }
 
-func logErrorAndRespond(w http.ResponseWriter, getErr error) {
+func logErrorAndRespond(w http.ResponseWriter, getErr error, statusCode int) {
 
 	l.LogError(getErr)
-	w.WriteHeader(500)
+	w.WriteHeader(statusCode)
 
 }
 

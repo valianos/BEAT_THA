@@ -29,8 +29,9 @@ func (s Spot) toString() string {
 	return fmt.Sprintf("lat: %f \t lng: %f", s.Lat, s.Lng)
 }
 
-// Create enum-like providerService.
 type PROVIDER string
+
+type METHOD string
 
 type MicroserviceResponse struct {
 	Eta      int32

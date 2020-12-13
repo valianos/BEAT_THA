@@ -8,7 +8,7 @@ import (
 
 var l = new(logger.Logger)
 
-func Get(url string) (*http.Response, error) {
+func Get(url string) (error, *http.Response) {
 
 	l.LogInfo("1. Performing Http Get...")
 	resp, err := http.Get(url)
@@ -16,11 +16,11 @@ func Get(url string) (*http.Response, error) {
 		l.LogError(err.Error())
 	}
 
-	return resp, err
+	return err, resp
 
 }
 
-func Post(url string, body []byte) (*http.Response, error) {
+func Post(url string, body []byte) (error, *http.Response) {
 
 	l.LogInfo("1. Performing Http Post...")
 	resp, err := http.Post(url, "application/json; charset=utf-8", bytes.NewBuffer(body))
@@ -28,6 +28,6 @@ func Post(url string, body []byte) (*http.Response, error) {
 		l.LogError(err.Error())
 	}
 
-	return resp, err
+	return err, resp
 
 }
