@@ -25,7 +25,7 @@ func handle(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 
 		err := errors.New(fmt.Sprintf("invalid request method [%s]", r.Method))
-		logErrorAndRespond(w, err, protocol.METHOD_NOT_ALLOWED)
+		logErrorAndRespond(w, err, http.StatusMethodNotAllowed)
 		return
 
 	}
@@ -33,7 +33,7 @@ func handle(w http.ResponseWriter, r *http.Request) {
 	if r.Body == nil {
 
 		err := errors.New("missing request body ")
-		logErrorAndRespond(w, err, protocol.BAD_REQUEST)
+		logErrorAndRespond(w, err, http.StatusBadRequest)
 		return
 
 	}
@@ -47,7 +47,7 @@ func handle(w http.ResponseWriter, r *http.Request) {
 
 		if readError != nil {
 
-			logErrorAndRespond(w, readError, protocol.BAD_REQUEST)
+			logErrorAndRespond(w, readError, http.StatusBadRequest)
 			return
 
 		}
@@ -61,7 +61,7 @@ func handle(w http.ResponseWriter, r *http.Request) {
 
 	if result.Err != nil {
 
-		logErrorAndRespond(w, result.Err, protocol.SERVER_ERROR)
+		logErrorAndRespond(w, result.Err, http.StatusInternalServerError)
 		return
 
 	}
@@ -74,7 +74,7 @@ func handle(w http.ResponseWriter, r *http.Request) {
 	if service == nil {
 
 		err := fmt.Sprintf("Unexpected service [%s]", calculate.Provider)
-		logErrorAndRespond(w, errors.New(err), protocol.SERVER_ERROR)
+		logErrorAndRespond(w, errors.New(err), http.StatusInternalServerError)
 		return
 
 	}
@@ -87,7 +87,7 @@ func handle(w http.ResponseWriter, r *http.Request) {
 		extResponse := <-Call(serv, calculate)
 		if extResponse.err != nil {
 
-			logErrorAndRespond(w, extResponse.err, protocol.SERVER_ERROR)
+			logErrorAndRespond(w, extResponse.err, http.StatusInternalServerError)
 			return
 
 		}
@@ -97,7 +97,7 @@ func handle(w http.ResponseWriter, r *http.Request) {
 			marshal, marshalError := json.Marshal(extResponse.resp)
 			if marshalError != nil {
 
-				logErrorAndRespond(w, marshalError, protocol.SERVER_ERROR)
+				logErrorAndRespond(w, marshalError, http.StatusInternalServerError)
 				return
 
 			}
