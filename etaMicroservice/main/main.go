@@ -14,14 +14,15 @@ var l = new(logger.Logger)
 
 func main() {
 
-	// wrap our hello handler function
-	http.Handle("/calculate", loggerware(handle))
-	http.ListenAndServe(":5500", nil)
+	// Configure the server.
+	http.Handle("/calculate", logAndHandle())
+	http.ListenAndServe(":8080", nil)
 
 }
 
 func handle(w http.ResponseWriter, r *http.Request) {
 
+	// Only accept HTTP POST.
 	if r.Method != "POST" {
 
 		err := errors.New(fmt.Sprintf("invalid request method [%s]", r.Method))
@@ -30,6 +31,7 @@ func handle(w http.ResponseWriter, r *http.Request) {
 
 	}
 
+	// Require a valid body.
 	if r.Body == nil {
 
 		err := errors.New("missing request body ")
@@ -56,6 +58,7 @@ func handle(w http.ResponseWriter, r *http.Request) {
 
 	}()
 
+	// Try to unmarshal the 'calculate' entity from input.
 	var calculate protocol.Calculate
 	result := <-protocol.UnmarshalCalculateToJSON(&calculate, input)
 
@@ -72,10 +75,12 @@ func handle(w http.ResponseWriter, r *http.Request) {
 		return
 
 	}
-	l.LogInfo("Received a valid calculated object:\n" + calculate.ToString())
 
 	// We have received the command. Now it is time to use the
 	// external microservices.
+	l.LogInfo("Received a valid calculated object:\n" + calculate.ToString())
+
+	// Fetch the appropriate service(s).
 	service := Factory(calculate)
 	if service == nil {
 
@@ -85,6 +90,8 @@ func handle(w http.ResponseWriter, r *http.Request) {
 
 	}
 
+	// This is the concurrent call to all required external microservices.
+	// Note: we will only keep the first response, in case of more services.
 	output := make(chan []byte)
 	for _, serv := range service {
 
@@ -114,10 +121,12 @@ func handle(w http.ResponseWriter, r *http.Request) {
 
 	}
 
+	// Use the first available response.
 	w.Write(<-output)
 
 }
 
+// Helper method that will log the occurred error and fail the request appropriately.
 func logErrorAndRespond(w http.ResponseWriter, getErr error, statusCode int) {
 
 	l.LogError(getErr)
@@ -125,16 +134,16 @@ func logErrorAndRespond(w http.ResponseWriter, getErr error, statusCode int) {
 
 }
 
-// loggerware can wrap any handler function and will print out the datetime of the request
-// as well as the path that the request was made to.
-func loggerware(handler http.HandlerFunc) http.HandlerFunc {
+// logAndHandle can wrap any handler function and will print out some
+// information about the request.
+func logAndHandle() http.HandlerFunc {
 
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
 
-		requestPath := r.URL
-		l.LogInfo("Request Made To: ", requestPath)
+		l.LogInfo(fmt.Sprintf("Received [%s] request from [%s] to: [%s]",
+			r.Method, r.RemoteAddr, r.RequestURI))
 		handle(w, r)
 
-	})
+	}
 
 }

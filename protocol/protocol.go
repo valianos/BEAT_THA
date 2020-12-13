@@ -15,18 +15,19 @@ type Calculate struct {
 
 func (calculate Calculate) Validate() error {
 
-	if calculate.Destination.Lng == 0 || calculate.Destination.Lat == 0 ||
-		calculate.Origin.Lng == 0 || calculate.Origin.Lat == 0 ||
-		calculate.Provider.IsValid() != nil {
-
-		return errors.New("invalid entity")
-
+	err := calculate.Origin.validate()
+	if err == nil {
+		err = calculate.Destination.validate()
+	}
+	if err == nil {
+		err = calculate.Provider.validate()
 	}
 
-	return nil
+	return err
 
 }
 
+// Friendly representation of the Calculate
 func (calculate Calculate) ToString() string {
 
 	return fmt.Sprintf("Origin: %s\nDestination: %s\nProviderService: %s",
@@ -34,9 +35,45 @@ func (calculate Calculate) ToString() string {
 
 }
 
+// Helper method to JSON unmarshal a Calculate.
+func UnmarshalCalculateToJSON(calculate *Calculate, input <-chan []byte) <-chan UnmarshalCalculateResult {
+
+	// This is the outbound channel.
+	output := make(chan UnmarshalCalculateResult)
+
+	go func() {
+
+		// Unmarshal channel data.
+		err := json.Unmarshal(<-input, &calculate)
+
+		if err != nil {
+			output <- UnmarshalCalculateResult{nil, err}
+		}
+
+		if err = calculate.Provider.validate(); err != nil {
+			output <- UnmarshalCalculateResult{nil, err}
+		}
+
+		output <- UnmarshalCalculateResult{calculate, err}
+
+	}()
+
+	return output
+
+}
+
 type Spot struct {
 	Lat float32
 	Lng float32
+}
+
+func (s Spot) validate() error {
+
+	if s.Lat == 0 || s.Lng == 0 {
+		return errors.New(fmt.Sprintf("invalid spot: [%s]", s.toString()))
+	}
+	return nil
+
 }
 
 func (s Spot) toString() string {
@@ -101,32 +138,6 @@ type UnmarshalCalculateResult struct {
 	Err       error
 }
 
-func UnmarshalCalculateToJSON(calculate *Calculate, input <-chan []byte) <-chan UnmarshalCalculateResult {
-
-	// This is the outbound channel.
-	output := make(chan UnmarshalCalculateResult)
-
-	go func() {
-
-		// Unmarshal channel data.
-		err := json.Unmarshal(<-input, &calculate)
-
-		if err != nil {
-			output <- UnmarshalCalculateResult{nil, err}
-		}
-
-		if err = calculate.Provider.IsValid(); err != nil {
-			output <- UnmarshalCalculateResult{nil, err}
-		}
-
-		output <- UnmarshalCalculateResult{calculate, err}
-
-	}()
-
-	return output
-
-}
-
 func (s ServiceBResponse) UnmarshalJSON(b []byte) (error, *ServiceBResponse) {
 
 	// Define a secondary type to avoid ending up with a recursive call to json.Unmarshal
@@ -136,7 +147,7 @@ func (s ServiceBResponse) UnmarshalJSON(b []byte) (error, *ServiceBResponse) {
 	err := json.Unmarshal(b, &r)
 
 	if err != nil {
-		panic(err) // FIXME
+		return err, nil
 	}
 
 	return nil, (*ServiceBResponse)(&r)
@@ -152,14 +163,14 @@ func (s ServiceAResponse) UnmarshalJSON(b []byte) (error, *ServiceAResponse) {
 	err := json.Unmarshal(b, &r)
 
 	if err != nil {
-		panic(err)
+		return err, nil
 	}
 
 	return nil, (*ServiceAResponse)(&r)
 
 }
 
-func (provider PROVIDER) IsValid() error {
+func (provider PROVIDER) validate() error {
 
 	switch provider {
 	case SERVICE_A, SERVICE_B, UNSPECIFIED:

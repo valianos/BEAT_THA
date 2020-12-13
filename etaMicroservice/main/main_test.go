@@ -10,6 +10,7 @@ import (
 )
 
 type testCase struct {
+	// Generic type here to be able to pass irrelevant body as well (for invalid scenarios).
 	requestBody interface{}
 	expected    string
 }

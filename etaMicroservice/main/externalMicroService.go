@@ -43,6 +43,7 @@ func Factory(calculate protocol.Calculate) []ExtEtaMicroService {
 			}}
 
 	case protocol.UNSPECIFIED:
+
 		url := fmt.Sprintf("%s?from=%f|%f&to=%f|%f",
 			protocol.SERVICE_B_URL,
 			calculate.Origin.Lat, calculate.Origin.Lng,
@@ -56,6 +57,7 @@ func Factory(calculate protocol.Calculate) []ExtEtaMicroService {
 				serviceUrl:    url,
 				serviceMethod: protocol.GET,
 			}}
+
 	default:
 		return nil
 
@@ -94,6 +96,7 @@ func Call(service ExtEtaMicroService, message protocol.Calculate) <-chan ExtMicr
 
 		}
 
+		// Convert according to protocol.
 		convertError, converted := service.toResponse(read)
 		if convertError != nil {
 
@@ -110,6 +113,8 @@ func Call(service ExtEtaMicroService, message protocol.Calculate) <-chan ExtMicr
 
 }
 
+// ======= Service implementations follow
+
 // ======= SERVICE A
 type ExtEtaMicroserviceA struct {
 	serviceUrl    string
@@ -119,22 +124,6 @@ type ExtEtaMicroserviceA struct {
 func (s ExtEtaMicroserviceA) url() string { return s.serviceUrl }
 
 func (s ExtEtaMicroserviceA) method() protocol.METHOD { return s.serviceMethod }
-
-func (s ExtEtaMicroserviceA) body(calculate protocol.Calculate) (error, []byte) {
-
-	request := protocol.ServiceARequest{
-		Origin:      protocol.Spot{Lat: calculate.Origin.Lat, Lng: calculate.Origin.Lng},
-		Destination: protocol.Spot{Lat: calculate.Destination.Lat, Lng: calculate.Destination.Lng},
-	}
-
-	marshal, marshalError := json.Marshal(request)
-	if marshalError != nil {
-		return marshalError, nil
-	}
-
-	return nil, marshal
-
-}
 
 func (s ExtEtaMicroserviceA) toResponse(body []byte) (error, *protocol.MicroserviceResponse) {
 
@@ -165,7 +154,23 @@ func (s ExtEtaMicroserviceA) performRequest(message protocol.Calculate) (error, 
 }
 
 func (s ExtEtaMicroserviceA) ToString() string {
-	return fmt.Sprintf("Service A: [{%s}:%s]", s.serviceMethod, s.serviceUrl)
+	return fmt.Sprintf("Service A: [{%s}: %s]", s.serviceMethod, s.serviceUrl)
+}
+
+func (s ExtEtaMicroserviceA) body(calculate protocol.Calculate) (error, []byte) {
+
+	request := protocol.ServiceARequest{
+		Origin:      protocol.Spot{Lat: calculate.Origin.Lat, Lng: calculate.Origin.Lng},
+		Destination: protocol.Spot{Lat: calculate.Destination.Lat, Lng: calculate.Destination.Lng},
+	}
+
+	marshal, marshalError := json.Marshal(request)
+	if marshalError != nil {
+		return marshalError, nil
+	}
+
+	return nil, marshal
+
 }
 
 // ======= SERVICE B

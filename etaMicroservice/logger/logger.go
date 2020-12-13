@@ -19,7 +19,8 @@ const (
 type Logger struct{}
 
 // log is a private function that manages the internal logic about what and how to log data depending on the log level
-func (l *Logger) log(level LogLevel, messages ...interface{}) {
+func (l *Logger) log(level LogLevel, message interface{}) {
+
 	now := time.Now()
 	var logType string
 	switch level {
@@ -38,30 +39,26 @@ func (l *Logger) log(level LogLevel, messages ...interface{}) {
 
 	}
 	// format the output in a somewhat friendly way
-	fmt.Println("-----------------------------------------")
-	fmt.Printf("%s - %s\n", logType, now)
-	for _, message := range messages {
-		fmt.Printf("%+v\n", message)
-	}
-	fmt.Println("-----------------------------------------")
+	fmt.Printf("[%s] - [%s]\t[%+v]\n", logType, now, message)
+
 }
 
 // LogDebug is a publicly exposed info log that passes the message along correctly
-func (l *Logger) LogDebug(messages ...interface{}) {
-	l.log(DEBUG, messages...)
+func (l *Logger) LogDebug(messages interface{}) {
+	l.log(DEBUG, messages)
 }
 
 // LogInfo is a publicly exposed info log that passes the message along correctly
-func (l *Logger) LogInfo(messages ...interface{}) {
-	l.log(INFO, messages...)
+func (l *Logger) LogInfo(messages interface{}) {
+	l.log(INFO, messages)
 }
 
 // LogWarning is a publicly exposed info log that passes the message along correctly
-func (l *Logger) LogWarning(messages ...interface{}) {
-	l.log(WARNING, messages...)
+func (l *Logger) LogWarning(messages interface{}) {
+	l.log(WARNING, messages)
 }
 
 // LogError is a publicly exposed info log that passes the message along correctly
-func (l *Logger) LogError(messages ...interface{}) {
-	l.log(ERROR, messages...)
+func (l *Logger) LogError(messages interface{}) {
+	l.log(ERROR, messages)
 }
