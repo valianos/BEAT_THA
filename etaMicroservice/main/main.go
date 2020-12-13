@@ -30,31 +30,41 @@ func handle(w http.ResponseWriter, r *http.Request) {
 
 	}
 
-	if r.Body != nil {
-		defer r.Body.Close()
-	}
+	if r.Body == nil {
 
-	read, readError := ioutil.ReadAll(r.Body)
-
-	if readError != nil {
-
-		logErrorAndRespond(w, readError, protocol.BAD_REQUEST)
+		err := errors.New("missing request body ")
+		logErrorAndRespond(w, err, protocol.BAD_REQUEST)
 		return
 
 	}
+
+	defer r.Body.Close()
+
+	input := make(chan []byte)
+	go func() {
+
+		read, readError := ioutil.ReadAll(r.Body)
+
+		if readError != nil {
+
+			logErrorAndRespond(w, readError, protocol.BAD_REQUEST)
+			return
+
+		}
+
+		input <- read
+
+	}()
 
 	var calculate protocol.Calculate
-	// TODO: pass pointer here, so that l58 is not necessary.
-	unmarshalError, calculated := protocol.Calculate.UnmarshalJSON(calculate, read)
+	result := <-protocol.UnmarshalCalculateToJSON(&calculate, input)
 
-	if unmarshalError != nil {
+	if result.Err != nil {
 
-		logErrorAndRespond(w, unmarshalError, protocol.BAD_REQUEST)
+		logErrorAndRespond(w, result.Err, protocol.SERVER_ERROR)
 		return
 
 	}
-
-	calculate = *calculated
 
 	l.LogInfo("Received a valid calculated object:\n" + calculate.ToString())
 
@@ -71,23 +81,30 @@ func handle(w http.ResponseWriter, r *http.Request) {
 
 	l.LogDebug(fmt.Sprintf("Will use [%s] endpoint.", service.ToString()))
 
-	extError, response := Call(service, calculate)
-	if extError != nil {
+	extResponse := <-Call(service, calculate)
+	if extResponse.err != nil {
 
-		logErrorAndRespond(w, extError, protocol.SERVER_ERROR)
+		logErrorAndRespond(w, extResponse.err, protocol.SERVER_ERROR)
 		return
 
 	}
 
-	marshal, marshalError := json.Marshal(response)
-	if marshalError != nil {
+	output := make(chan []byte)
+	go func() {
 
-		logErrorAndRespond(w, marshalError, protocol.SERVER_ERROR)
-		return
+		marshal, marshalError := json.Marshal(extResponse.resp)
+		if marshalError != nil {
 
-	}
+			logErrorAndRespond(w, marshalError, protocol.SERVER_ERROR)
+			return
 
-	w.Write(marshal)
+		}
+
+		output <- marshal
+
+	}()
+
+	w.Write(<-output)
 
 }
 

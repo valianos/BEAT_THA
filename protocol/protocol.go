@@ -82,23 +82,34 @@ func (s ServiceAResponse) ToString() string {
 
 func (s ServiceAResponse) Eta() int32 { return s.Duration }
 
-func (calculate Calculate) UnmarshalJSON(b []byte) (error, *Calculate) {
+type UnmarshalCalculateResult struct {
+	Unmarshal *Calculate
+	Err       error
+}
 
-	// Define a secondary type to avoid ending up with a recursive call to json.Unmarshal
-	type calc Calculate
-	var c calc = (calc)(calculate)
+func UnmarshalCalculateToJSON(calculate *Calculate, input <-chan []byte) <-chan UnmarshalCalculateResult {
 
-	err := json.Unmarshal(b, &c)
+	// This is the outbound channel.
+	output := make(chan UnmarshalCalculateResult)
 
-	if err != nil {
-		panic(err)
-	}
+	go func() {
 
-	if err := c.Provider.IsValid(); err != nil {
-		return err, nil
-	}
+		// Unmarshal channel data.
+		err := json.Unmarshal(<-input, &calculate)
 
-	return nil, (*Calculate)(&c)
+		if err != nil {
+			output <- UnmarshalCalculateResult{nil, err}
+		}
+
+		if err = calculate.Provider.IsValid(); err != nil {
+			output <- UnmarshalCalculateResult{nil, err}
+		}
+
+		output <- UnmarshalCalculateResult{calculate, err}
+
+	}()
+
+	return output
 
 }
 

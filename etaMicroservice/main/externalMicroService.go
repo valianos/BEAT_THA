@@ -47,28 +47,50 @@ func Factory(calculate protocol.Calculate) ExtEtaMicroService {
 
 }
 
+type ExtMicroServiceResponse struct {
+	err  error
+	resp *protocol.MicroserviceResponse
+}
+
 // Exported function for using abstractly the external microservices.
-func Call(service ExtEtaMicroService, message protocol.Calculate) (error, *protocol.MicroserviceResponse) {
+func Call(service ExtEtaMicroService, message protocol.Calculate) <-chan ExtMicroServiceResponse {
 
-	err, response := service.performRequest(message)
+	output := make(chan ExtMicroServiceResponse)
 
-	// Fail if something went wrong.
-	if err != nil || response == nil {
-		return err, nil
-	}
+	go func() {
 
-	// Read the response
-	read, readError := ioutil.ReadAll(response.Body)
-	if readError != nil {
-		return readError, nil
-	}
+		err, response := service.performRequest(message)
 
-	convertError, converted := service.toResponse(read)
-	if convertError != nil {
-		return convertError, nil
-	}
+		// Fail if something went wrong.
+		if err != nil || response == nil {
 
-	return nil, converted
+			output <- ExtMicroServiceResponse{err: err, resp: nil}
+			return
+
+		}
+
+		// Read the response
+		read, readError := ioutil.ReadAll(response.Body)
+		if readError != nil {
+
+			output <- ExtMicroServiceResponse{err: readError, resp: nil}
+			return
+
+		}
+
+		convertError, converted := service.toResponse(read)
+		if convertError != nil {
+
+			output <- ExtMicroServiceResponse{err: convertError, resp: nil}
+			return
+
+		}
+
+		output <- ExtMicroServiceResponse{err: nil, resp: converted}
+
+	}()
+
+	return output
 
 }
 
