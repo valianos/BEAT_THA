@@ -8,8 +8,8 @@ import (
 
 // ========== Inner protocol
 type Calculate struct {
-	Origin      Spot     `json:"origin"`
-	Destination Spot     `json:"destination"`
+	Origin      Point    `json:"origin"`
+	Destination Point    `json:"destination"`
 	Provider    PROVIDER `json:"provider"`
 }
 
@@ -62,22 +62,22 @@ func UnmarshalCalculateToJSON(calculate *Calculate, input <-chan []byte) <-chan 
 
 }
 
-type Spot struct {
+type Point struct {
 	Lat float32
 	Lng float32
 }
 
-func (s Spot) validate() error {
+func (p Point) validate() error {
 
-	if s.Lat == 0 || s.Lng == 0 {
-		return errors.New(fmt.Sprintf("invalid spot: [%s]", s.toString()))
+	if p.Lat == 0 || p.Lng == 0 {
+		return errors.New(fmt.Sprintf("invalid spot: [%p]", p.toString()))
 	}
 	return nil
 
 }
 
-func (s Spot) toString() string {
-	return fmt.Sprintf("lat: %f \t lng: %f", s.Lat, s.Lng)
+func (p Point) toString() string {
+	return fmt.Sprintf("lat: %f \t lng: %f", p.Lat, p.Lng)
 }
 
 type PROVIDER string
@@ -110,8 +110,8 @@ func (s ServiceBResponse) ToString() string {
 func (s ServiceBResponse) Eta() int32 { return s.Duration }
 
 type ServiceARequest struct {
-	Origin      Spot
-	Destination Spot
+	Origin      Point
+	Destination Point
 }
 
 func (s ServiceARequest) toString() string {
@@ -120,8 +120,8 @@ func (s ServiceARequest) toString() string {
 }
 
 type ServiceAResponse struct {
-	Origin      Spot
-	Destination Spot
+	Origin      Point
+	Destination Point
 	Distance    int32
 	Duration    int32
 }

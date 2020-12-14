@@ -95,7 +95,7 @@ func handle(w http.ResponseWriter, r *http.Request) {
 	output := make(chan []byte)
 	for _, serv := range service {
 
-		l.LogDebug(fmt.Sprintf("Will use [%s] endpoint.", serv.ToString()))
+		l.LogDebug(fmt.Sprintf("Will use [%s] endpoint.", serv.ToString(calculate)))
 
 		extResponse := <-Call(serv, calculate)
 		if extResponse.err != nil {
@@ -121,7 +121,7 @@ func handle(w http.ResponseWriter, r *http.Request) {
 
 	}
 
-	// Use the first available response.
+	// Use the first available response, if more than one is due.
 	w.Write(<-output)
 
 }

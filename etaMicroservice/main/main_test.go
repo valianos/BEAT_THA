@@ -20,11 +20,11 @@ func Test_basic_functionality(t *testing.T) {
 	cases := []testCase{
 		{
 			requestBody: protocol.Calculate{
-				Origin: protocol.Spot{
+				Origin: protocol.Point{
 					Lat: 37.0816818,
 					Lng: 23.5035676,
 				},
-				Destination: protocol.Spot{
+				Destination: protocol.Point{
 					Lat: 37.5142881,
 					Lng: 22.5093049,
 				},
@@ -32,11 +32,11 @@ func Test_basic_functionality(t *testing.T) {
 			expected: `{"Eta":16707,"Provider":"ETAServiceB"}`,
 		}, {
 			requestBody: protocol.Calculate{
-				Origin: protocol.Spot{
+				Origin: protocol.Point{
 					Lat: 37.0816818,
 					Lng: 23.5035676,
 				},
-				Destination: protocol.Spot{
+				Destination: protocol.Point{
 					Lat: 37.5142881,
 					Lng: 22.5093049,
 				},
@@ -44,11 +44,11 @@ func Test_basic_functionality(t *testing.T) {
 			expected: `{"Eta":20048,"Provider":"ETAServiceA"}`,
 		}, {
 			requestBody: protocol.Calculate{
-				Origin: protocol.Spot{
+				Origin: protocol.Point{
 					Lat: 37.0816818,
 					Lng: 23.5035676,
 				},
-				Destination: protocol.Spot{
+				Destination: protocol.Point{
 					Lat: 37.5142881,
 					Lng: 22.5093049,
 				},
@@ -56,11 +56,11 @@ func Test_basic_functionality(t *testing.T) {
 			expected: `{"Eta":20048,"Provider":"ETAServiceA"}`, // Service A responds quicker.
 		}, {
 			requestBody: protocol.Calculate{
-				Origin: protocol.Spot{
+				Origin: protocol.Point{
 					Lat: 37.0816818,
 					Lng: 23.5035676,
 				},
-				Destination: protocol.Spot{
+				Destination: protocol.Point{
 					Lat: 37.5142881,
 					Lng: 22.5093049,
 				}}, // Missing provider means empty string provider
@@ -103,11 +103,11 @@ func Test_bad_input(t *testing.T) {
 	cases := []testCase{
 		{
 			requestBody: protocol.Calculate{
-				Origin: protocol.Spot{
+				Origin: protocol.Point{
 					Lat: 37.0816818,
 					Lng: 23.5035676,
 				},
-				Destination: protocol.Spot{
+				Destination: protocol.Point{
 					Lat: 37.5142881,
 					Lng: 22.5093049,
 				},

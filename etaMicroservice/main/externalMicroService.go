@@ -10,11 +10,27 @@ import (
 )
 
 type ExtEtaMicroService interface {
-	url() string
+	url(calculate protocol.Calculate) string
 	method() protocol.METHOD
 	toResponse([]byte) (error, *protocol.MicroserviceResponse)
 	performRequest(calculate protocol.Calculate) (error, *http.Response)
-	ToString() string
+	ToString(message protocol.Calculate) string
+}
+
+var SINGLETON [2]ExtEtaMicroService
+
+func init() {
+
+	SINGLETON = [2]ExtEtaMicroService{
+		ExtEtaMicroserviceA{
+			serviceUrl:    protocol.SERVICE_A_URL,
+			serviceMethod: protocol.POST,
+		},
+		ExtEtaMicroserviceB{
+			serviceUrl:    "%s?from=%f|%f&to=%f|%f",
+			serviceMethod: protocol.GET,
+		}}
+
 }
 
 // Factory method for creating the two available external microservices.
@@ -23,41 +39,11 @@ func Factory(calculate protocol.Calculate) []ExtEtaMicroService {
 	switch calculate.Provider {
 
 	case protocol.SERVICE_A:
-
-		return []ExtEtaMicroService{
-			ExtEtaMicroserviceA{
-				serviceUrl:    protocol.SERVICE_A_URL,
-				serviceMethod: protocol.POST,
-			}}
-
+		return SINGLETON[0:1]
 	case protocol.SERVICE_B:
-
-		url := fmt.Sprintf("%s?from=%f|%f&to=%f|%f",
-			protocol.SERVICE_B_URL,
-			calculate.Origin.Lat, calculate.Origin.Lng,
-			calculate.Destination.Lat, calculate.Destination.Lng)
-		return []ExtEtaMicroService{
-			ExtEtaMicroserviceB{
-				serviceUrl:    url,
-				serviceMethod: protocol.GET,
-			}}
-
+		return SINGLETON[1:]
 	case protocol.UNSPECIFIED:
-
-		url := fmt.Sprintf("%s?from=%f|%f&to=%f|%f",
-			protocol.SERVICE_B_URL,
-			calculate.Origin.Lat, calculate.Origin.Lng,
-			calculate.Destination.Lat, calculate.Destination.Lng)
-		return []ExtEtaMicroService{
-			ExtEtaMicroserviceA{
-				serviceUrl:    protocol.SERVICE_A_URL,
-				serviceMethod: protocol.POST,
-			},
-			ExtEtaMicroserviceB{
-				serviceUrl:    url,
-				serviceMethod: protocol.GET,
-			}}
-
+		return SINGLETON[:]
 	default:
 		return nil
 
@@ -121,7 +107,7 @@ type ExtEtaMicroserviceA struct {
 	serviceMethod protocol.METHOD
 }
 
-func (s ExtEtaMicroserviceA) url() string { return s.serviceUrl }
+func (s ExtEtaMicroserviceA) url(calculate protocol.Calculate) string { return s.serviceUrl }
 
 func (s ExtEtaMicroserviceA) method() protocol.METHOD { return s.serviceMethod }
 
@@ -149,19 +135,19 @@ func (s ExtEtaMicroserviceA) performRequest(message protocol.Calculate) (error, 
 		return err, nil
 	}
 
-	return httpUtil.Post(s.url(), bytes)
+	return httpUtil.Post(s.url(message), bytes)
 
 }
 
-func (s ExtEtaMicroserviceA) ToString() string {
+func (s ExtEtaMicroserviceA) ToString(message protocol.Calculate) string {
 	return fmt.Sprintf("Service A: [{%s}: %s]", s.serviceMethod, s.serviceUrl)
 }
 
 func (s ExtEtaMicroserviceA) body(calculate protocol.Calculate) (error, []byte) {
 
 	request := protocol.ServiceARequest{
-		Origin:      protocol.Spot{Lat: calculate.Origin.Lat, Lng: calculate.Origin.Lng},
-		Destination: protocol.Spot{Lat: calculate.Destination.Lat, Lng: calculate.Destination.Lng},
+		Origin:      protocol.Point{Lat: calculate.Origin.Lat, Lng: calculate.Origin.Lng},
+		Destination: protocol.Point{Lat: calculate.Destination.Lat, Lng: calculate.Destination.Lng},
 	}
 
 	marshal, marshalError := json.Marshal(request)
@@ -179,7 +165,14 @@ type ExtEtaMicroserviceB struct {
 	serviceMethod protocol.METHOD
 }
 
-func (s ExtEtaMicroserviceB) url() string { return s.serviceUrl }
+func (s ExtEtaMicroserviceB) url(calculate protocol.Calculate) string {
+
+	return fmt.Sprintf(s.serviceUrl,
+		protocol.SERVICE_B_URL,
+		calculate.Origin.Lat, calculate.Origin.Lng,
+		calculate.Destination.Lat, calculate.Destination.Lng)
+
+}
 
 func (s ExtEtaMicroserviceB) method() protocol.METHOD { return s.serviceMethod }
 
@@ -201,9 +194,9 @@ func (s ExtEtaMicroserviceB) toResponse(body []byte) (error, *protocol.Microserv
 }
 
 func (s ExtEtaMicroserviceB) performRequest(message protocol.Calculate) (error, *http.Response) {
-	return httpUtil.Get(s.url())
+	return httpUtil.Get(s.url(message))
 }
 
-func (s ExtEtaMicroserviceB) ToString() string {
-	return fmt.Sprintf("Service B: [{%s}:%s]", s.serviceMethod, s.serviceUrl)
+func (s ExtEtaMicroserviceB) ToString(message protocol.Calculate) string {
+	return fmt.Sprintf("Service B: [{%s}:%s]", s.serviceMethod, s.url(message))
 }
