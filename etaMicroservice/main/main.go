@@ -97,15 +97,16 @@ func handle(w http.ResponseWriter, r *http.Request) {
 
 		l.LogDebug(fmt.Sprintf("Will use [%s] endpoint.", serv.ToString(calculate)))
 
-		extResponse := <-Call(serv, calculate)
-		if extResponse.err != nil {
-
-			logErrorAndRespond(w, extResponse.err, http.StatusInternalServerError)
-			return
-
-		}
-
+		serv := serv
 		go func() {
+
+			extResponse := <-Call(serv, calculate)
+			if extResponse.err != nil {
+
+				logErrorAndRespond(w, extResponse.err, http.StatusInternalServerError)
+				return
+
+			}
 
 			marshal, marshalError := json.Marshal(extResponse.resp)
 			if marshalError != nil {
